@@ -1,5 +1,6 @@
 package newREALs.backend.controller;
 
+import io.jsonwebtoken.ExpiredJwtException;
 import jakarta.persistence.EntityNotFoundException;
 import newREALs.backend.dto.ApiResponseDTO;
 import org.hibernate.Internal;
@@ -23,6 +24,11 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponseDTO<Object>> handleIllegalArgumentException(IllegalArgumentException ex) {
         return ResponseEntity.badRequest()
                 .body(ApiResponseDTO.failure("E400", ex.getMessage()));
+    }
+    @ExceptionHandler(ExpiredJwtException.class)
+    public ResponseEntity<ApiResponseDTO<Object>> handleExpiredJwtException(ExpiredJwtException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ApiResponseDTO.failure("E401", "토큰이 만료되었습니다. 다시 로그인해주세요."));
     }
 
     // 401 - Unauthorized  - 토큰 오류

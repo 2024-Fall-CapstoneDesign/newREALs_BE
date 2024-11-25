@@ -37,6 +37,27 @@ public class TokenService {
     @Value("${jwt.refresh-expiration-time}")
     private long refreshExpirationTime;
 
+    public String generateTemporaryToken(String providerId) {
+        Date date = new Date();
+        long temporaryTokenExpirationTime = 3 * 60 * 60 * 1000; // 3시간
+        log.debug("임시토큰 만드는 중, providerId:{}", providerId);
+        return Jwts.builder()
+                .setSubject(providerId)
+                .setExpiration(new Date(date.getTime() + temporaryTokenExpirationTime))
+                .setIssuedAt(date)
+                .signWith(key, SignatureAlgorithm.HS512)
+                .compact();
+    }
+
+    public String extractProviderIdFromTemporaryToken(String token) {
+        Claims claims = Jwts.parserBuilder()
+                .setSigningKey(key)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+        return claims.getSubject();
+    }
+
     public String generateAccessToken(Accounts account) {
         Date date = new Date();
 
@@ -62,12 +83,36 @@ public class TokenService {
                 .compact();
     }
 
-        public boolean validateToken(String token) {
+    public boolean validateToken(String token) {
         try {
-            Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token);
+            Jwts.parserBuilder()
+                    .setSigningKey(key)
+                    .build()
+                    .parseClaimsJws(token);
             return true;
+        } catch (io.jsonwebtoken.ExpiredJwtException e) {
+            // 토큰이 만료된 경우
+            log.error("JWT 토큰이 만료되었습니다: {}", e.getMessage());
+            throw e;
         } catch (Exception e) {
             log.error("잘못된 JWT 토큰이에요: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    public boolean validateTemporaryToken(String token) {
+        try {
+            Claims claims = Jwts.parserBuilder()
+                    .setSigningKey(key)
+                    .build()
+                    .parseClaimsJws(token)
+                    .getBody();
+            if(claims.getExpiration().before(new Date())) {
+                throw new SecurityException("임시 토큰이 만료되었습니다.");
+            }
+            return true;
+        } catch (Exception e) {
+            log.error("임시 토큰 검증 실패: {}", e.getMessage());
             return false;
         }
     }
@@ -103,6 +148,4 @@ public class TokenService {
         log.debug("TokenService - 헤더에서 추출한 토큰의 user Id: {}", userId);
         return userId;
     }
-
-
 }

@@ -14,22 +14,19 @@ import newREALs.backend.service.AttendanceService;
 import newREALs.backend.service.KakaoService;
 import newREALs.backend.service.ProfileService;
 import newREALs.backend.service.TokenService;
-import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.parameters.P;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Slf4j
 @RestController
 @RequestMapping("/accounts")
 @RequiredArgsConstructor
 public class AccountsController {
-
     private final KakaoService kakaoService;
     private final TokenService tokenService;
     private final UserRepository userRepository;
@@ -71,28 +68,34 @@ public class AccountsController {
         }
 
         Map<String, Object> kakaoResponse = kakaoService.processKakaoLogin(authorizationCode);
-        Long userId = (Long) kakaoResponse.get("userId");
-        // 플래그로 확인
-        // 여기서 바로 findByEmail하면 이미 DB에 들어가있는 상태라 구분이 안됨
+//        Long userId = (Long) kakaoResponse.get("userId");
+        String providerId = (String) kakaoResponse.get("providerId");
+
+        // 디비에 유저 있는지 확인
+        Optional<Accounts> optionalAccount = userRepository.findByProviderId(providerId);
+        Map<String, Object> responseBody = new HashMap<>();
+
         String redirectUrl;
-        if ((boolean) kakaoResponse.get("isNewAccount")) {
+        if(optionalAccount.isEmpty()) {
+            String temporaryToken = tokenService.generateTemporaryToken(providerId);
+            responseBody.put("temporary_token", temporaryToken);
             redirectUrl = "/register";
         } else {
-            // 디비에 userKeyword가 없으면 /register로 리다이렉트
-            boolean hasKeywords = userKeywordRepository.existsByUserId(userId);
-            if(hasKeywords){
+            Accounts account = optionalAccount.get();
+            boolean hasKeywords = userKeywordRepository.existsByUserId(account.getId());
+            if(!hasKeywords) {
+                String temporaryToken = tokenService.generateTemporaryToken(providerId);
+                responseBody.put("temporary_token", temporaryToken);
+                redirectUrl = "/register";
+            } else {
+                String accessToken = tokenService.generateAccessToken(account);
+                String refreshToken = tokenService.generateRefreshToken(account);
+                responseBody.put("access_token", accessToken);
+                responseBody.put("refresh_token", refreshToken);
                 redirectUrl = "/home";
             }
-            else {
-                redirectUrl = "/register";
-            }
-
         }
 
-        // 응답 객체 생성
-        Map<String, Object> responseBody = new HashMap<>();
-        responseBody.put("access_token", kakaoResponse.get("accessToken"));
-        responseBody.put("refresh_token", kakaoResponse.get("refreshToken")); // Refresh Token 추가
         responseBody.put("redirect_url", redirectUrl);
         responseBody.put("name", kakaoResponse.get("name"));
         responseBody.put("email", kakaoResponse.get("email"));

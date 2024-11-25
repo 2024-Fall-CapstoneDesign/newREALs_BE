@@ -2,6 +2,7 @@ package newREALs.backend.domain;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.antlr.v4.runtime.misc.NotNull;
 import org.hibernate.annotations.ColumnDefault;
 
 import java.util.ArrayList;
@@ -44,11 +45,15 @@ public class Accounts {
     @ElementCollection(fetch = FetchType.LAZY)
     private List<Integer> keywordInterest = new ArrayList<>(Collections.nCopies(50, 0));
 
+    @Column(name = "provider_id", nullable = false, unique = true)
+    private String providerId;
+
     @Builder
-    public Accounts(String name, String profilePath, String email) {
+    public Accounts(String name, String profilePath, String email, String providerId) {
         this.name = name;
         this.profilePath = profilePath;
         this.email = email;
+        this.providerId = providerId;
         this.point = 0;
     }
 
