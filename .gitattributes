@@ -4,3 +4,4 @@
 
 *.java linguist-vendored=false
 *.java linguist-documentation=false
+*.java linguist-language=Java
